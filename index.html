@@ -307,6 +307,7 @@
             display: flex;
             gap: 5px;
             margin-bottom: 10px;
+            flex-wrap: wrap;
         }
 
         .action-btn {
@@ -318,6 +319,7 @@
             font-size: 0.8rem;
             cursor: pointer;
             transition: all 0.2s ease;
+            position: relative;
         }
 
         .action-btn:hover {
@@ -325,7 +327,7 @@
             color: white;
         }
 
-        #emoji-picker {
+        #emoji-picker, #sound-picker {
             display: none;
             position: absolute;
             bottom: 100%;
@@ -338,6 +340,35 @@
             z-index: 1000;
             grid-template-columns: repeat(6, 1fr);
             gap: 5px;
+        }
+
+        #sound-picker {
+            grid-template-columns: 1fr;
+            min-width: 200px;
+            padding: 15px;
+        }
+
+        .sound-option {
+            padding: 10px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border: 1px solid rgba(102, 126, 234, 0.2);
+            margin-bottom: 8px;
+        }
+
+        .sound-option:hover {
+            background: rgba(102, 126, 234, 0.1);
+            transform: translateX(5px);
+        }
+
+        .sound-option.active {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border-color: #667eea;
         }
 
         .emoji {
@@ -354,10 +385,6 @@
 
         .emoji:hover {
             background: rgba(102, 126, 234, 0.1);
-        }
-
-        .sound-notification {
-            display: none;
         }
 
         /* Modal styles for name entry */
@@ -477,7 +504,7 @@
             
             <div id="actions-bar">
                 <button class="action-btn" id="emoji-btn">😊</button>
-                <button class="action-btn" id="sound-btn">🔊</button>
+                <button class="action-btn" id="sound-btn">🔊 Sounds</button>
             </div>
 
             <div id="message-section" style="position: relative;">
@@ -494,11 +521,33 @@
                     <div class="emoji">😮</div><div class="emoji">😡</div><div class="emoji">🤔</div>
                     <div class="emoji">🎉</div><div class="emoji">👋</div><div class="emoji">🔥</div>
                 </div>
+
+                <div id="sound-picker">
+                    <div class="sound-option active" data-sound="ding">
+                        🔔 Classic Ding
+                    </div>
+                    <div class="sound-option" data-sound="bubble">
+                        💧 Bubble Pop
+                    </div>
+                    <div class="sound-option" data-sound="chime">
+                        🎵 Soft Chime
+                    </div>
+                    <div class="sound-option" data-sound="ping">
+                        📳 Modern Ping
+                    </div>
+                    <div class="sound-option" data-sound="whistle">
+                        🎶 Whistle
+                    </div>
+                    <div class="sound-option" data-sound="off">
+                        🔇 Sound Off
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
-    <audio id="notification-sound" class="sound-notification">
+    <!-- Audio elements for different notification sounds -->
+    <audio id="sound-ding" preload="auto">
         <source src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLmokmRcGuA6+Pyz" type="audio/wav">
     </audio>
 
@@ -541,9 +590,9 @@
         const typingIndicator = document.getElementById('typing-indicator');
         const emojiBtn = document.getElementById('emoji-btn');
         const emojiPicker = document.getElementById('emoji-picker');
-        const clearChatBtn = document.getElementById('clear-chat-btn');
         const soundBtn = document.getElementById('sound-btn');
-        const notificationSound = document.getElementById('notification-sound');
+        const soundPicker = document.getElementById('sound-picker');
+        const clearChatBtn = document.getElementById('clear-chat-btn');
         const currentUsernameSpan = document.getElementById('current-username');
         const nameModal = document.getElementById('name-modal');
         const nameModalInput = document.getElementById('name-modal-input');
@@ -552,9 +601,108 @@
         // State
         let currentUsername = "";
         let messages = [];
-        let soundEnabled = true;
+        let currentSoundType = "ding";
         let typingTimeout;
         let isTyping = false;
+
+        // Audio Context for generating sounds
+        let audioContext;
+        
+        // Initialize audio context
+        function initAudioContext() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        // Sound generation functions
+        function playBubbleSound() {
+            initAudioContext();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+            oscillator.frequency.exponentialRampToValueAtTime(400, audioContext.currentTime + 0.1);
+            
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.3);
+        }
+
+        function playChimeSound() {
+            initAudioContext();
+            const frequencies = [523.25, 659.25, 783.99]; // C5, E5, G5
+            
+            frequencies.forEach((freq, index) => {
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.frequency.setValueAtTime(freq, audioContext.currentTime);
+                oscillator.type = 'sine';
+                
+                const startTime = audioContext.currentTime + (index * 0.1);
+                gainNode.gain.setValueAtTime(0, startTime);
+                gainNode.gain.linearRampToValueAtTime(0.2, startTime + 0.05);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + 0.8);
+                
+                oscillator.start(startTime);
+                oscillator.stop(startTime + 0.8);
+            });
+        }
+
+        function playPingSound() {
+            initAudioContext();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.setValueAtTime(1000, audioContext.currentTime);
+            oscillator.type = 'sine';
+            
+            gainNode.gain.setValueAtTime(0.4, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.15);
+        }
+
+        function playWhistleSound() {
+            initAudioContext();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.setValueAtTime(2000, audioContext.currentTime);
+            oscillator.frequency.linearRampToValueAtTime(2500, audioContext.currentTime + 0.2);
+            oscillator.type = 'sine';
+            
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.linearRampToValueAtTime(0.1, audioContext.currentTime + 0.1);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.4);
+        }
+
+        function playDingSound() {
+            const audioElement = document.getElementById('sound-ding');
+            if (audioElement) {
+                audioElement.currentTime = 0;
+                audioElement.play().catch(e => console.log('Ding sound play failed:', e));
+            }
+        }
 
         // Name modal functionality
         function showNameModal() {
@@ -716,13 +864,28 @@
         }
 
         function playNotificationSound() {
-            if (soundEnabled) {
-                try {
-                    notificationSound.currentTime = 0;
-                    notificationSound.play().catch(e => console.log('Sound play failed:', e));
-                } catch (e) {
-                    console.log('Sound not available:', e);
+            if (currentSoundType === 'off') return;
+            
+            try {
+                switch (currentSoundType) {
+                    case 'ding':
+                        playDingSound();
+                        break;
+                    case 'bubble':
+                        playBubbleSound();
+                        break;
+                    case 'chime':
+                        playChimeSound();
+                        break;
+                    case 'ping':
+                        playPingSound();
+                        break;
+                    case 'whistle':
+                        playWhistleSound();
+                        break;
                 }
+            } catch (e) {
+                console.log('Sound play failed:', e);
             }
         }
 
@@ -754,10 +917,31 @@
             }
         }
 
-        function toggleSound() {
-            soundEnabled = !soundEnabled;
-            soundBtn.textContent = soundEnabled ? '🔊' : '🔇';
-            // Removed the status message that was showing sound enabled/disabled
+        function setSoundType(soundType) {
+            currentSoundType = soundType;
+            localStorage.setItem('messengerSoundType', soundType);
+            
+            // Update UI to show active sound
+            document.querySelectorAll('.sound-option').forEach(option => {
+                option.classList.remove('active');
+            });
+            document.querySelector(`[data-sound="${soundType}"]`).classList.add('active');
+            
+            // Update button text
+            const soundNames = {
+                'ding': '🔔',
+                'bubble': '💧',
+                'chime': '🎵',
+                'ping': '📳',
+                'whistle': '🎶',
+                'off': '🔇'
+            };
+            soundBtn.textContent = `${soundNames[soundType]} Sounds`;
+            
+            // Play a preview of the selected sound
+            if (soundType !== 'off') {
+                setTimeout(() => playNotificationSound(), 200);
+            }
         }
 
         // Event Listeners
@@ -799,10 +983,19 @@
         emojiBtn.addEventListener('click', function(e) {
             e.stopPropagation();
             emojiPicker.style.display = emojiPicker.style.display === 'grid' ? 'none' : 'grid';
+            soundPicker.style.display = 'none';
+        });
+
+        // Sound picker functionality
+        soundBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            soundPicker.style.display = soundPicker.style.display === 'grid' ? 'none' : 'grid';
+            emojiPicker.style.display = 'none';
         });
 
         document.addEventListener('click', function() {
             emojiPicker.style.display = 'none';
+            soundPicker.style.display = 'none';
         });
 
         document.querySelectorAll('.emoji').forEach(emoji => {
@@ -815,13 +1008,26 @@
             });
         });
 
+        // Sound option event listeners
+        document.querySelectorAll('.sound-option').forEach(option => {
+            option.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const soundType = this.getAttribute('data-sound');
+                setSoundType(soundType);
+                soundPicker.style.display = 'none';
+            });
+        });
+
         clearChatBtn.addEventListener('click', clearChat);
-        soundBtn.addEventListener('click', toggleSound);
 
         // Initialize the app
+        // Load saved sound preference
+        const savedSoundType = localStorage.getItem('messengerSoundType') || 'ding';
+        setSoundType(savedSoundType);
+        
         showNameModal();
         
-        console.log("Modern Messenger initialized with enhanced features!");
+        console.log("Enhanced Messenger initialized with multiple sound options!");
     </script>
 </body>
 </html>
