@@ -505,7 +505,7 @@
     <script type="module">
         // Import the functions you need from the SDKs you need
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
-        import { getDatabase, ref, push, serverTimestamp, orderByChild, limitToLast, onChildAdded, query, set } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-database.js";
+        import { getDatabase, ref, push, serverTimestamp, orderByChild, limitToLast, onChildAdded, query, set, onValue } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-database.js";
         import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-analytics.js";
 
         // Your web app's Firebase configuration
@@ -634,6 +634,15 @@
                     if (message) {
                         const isMyMsg = message.sender === currentUsername;
                         displayMessage(messageId, message.sender, message.text, message.timestamp, isMyMsg);
+                    }
+                });
+
+                // Listen for when the entire messages node is cleared
+                onValue(messagesDbRef, (snapshot) => {
+                    if (!snapshot.exists()) {
+                        // Messages have been cleared - clear the local display
+                        messagesContainer.innerHTML = '';
+                        addStatusMessage('Chat cleared by administrator');
                     }
                 });
                 
