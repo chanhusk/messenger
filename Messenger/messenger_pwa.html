@@ -1,0 +1,1113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Instant Chat</title>
+
+    <link rel="manifest" href="manifest.json">
+
+    <meta name="theme-color" content="#667eea">
+
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Instant Chat">
+    <link rel="apple-touch-icon" href="icons/apple-icon-180x180.png">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            /* PWA Safe Area Insets */
+            padding-top: env(safe-area-inset-top);
+            padding-left: env(safe-area-inset-left);
+            padding-right: env(safe-area-inset-right);
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+
+        #app-container {
+            width: 100%; /* Modified for PWA fullscreen feel */
+            height: 100%; /* Modified for PWA fullscreen feel */
+            max-width: 480px; /* Retained for desktop/larger screens if not PWA standalone */
+            max-height: none; /* Allow full height */
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 0; /* Modified for PWA fullscreen feel, or keep for non-standalone */
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        /* If running as standalone PWA, make app-container truly fullscreen */
+        @media all and (display-mode: standalone) {
+            body {
+                 padding-top: 0; /* Reset body padding if app-container handles safe area */
+                 padding-left: 0;
+                 padding-right: 0;
+                 padding-bottom: 0;
+            }
+            #app-container {
+                max-width: 100%;
+                border-radius: 0;
+                border: none;
+                height: 100vh; /* Full viewport height */
+                 /* Incorporate safe area padding directly into the app container */
+                padding-top: env(safe-area-inset-top);
+                padding-bottom: env(safe-area-inset-bottom);
+            }
+             #header {
+                /* Adjust header if body padding for safe area is removed */
+                /* padding-top: calc(20px + env(safe-area-inset-top)); */
+            }
+            #input-area {
+                 /* Adjust input area if body padding for safe area is removed */
+                /* padding-bottom: calc(20px + env(safe-area-inset-bottom)); */
+            }
+        }
+
+
+        #header {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 20px;
+            /* Header padding adjustment for safe area, applied when app-container handles it */
+            /* padding-top: calc(20px + env(safe-area-inset-top)); */
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: relative;
+            flex-shrink: 0; /* Prevent header from shrinking */
+        }
+
+        #header-controls {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        #clear-chat-btn {
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            color: white;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        #clear-chat-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.05);
+        }
+
+        #header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header-icon {
+            width: 24px;
+            height: 24px;
+            fill: currentColor;
+        }
+
+        #online-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #00ff88;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        #chat-window {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: linear-gradient(180deg, #f8f9ff 0%, #e8eeff 100%);
+            position: relative;
+        }
+
+        #chat-window::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        #chat-window::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        #chat-window::-webkit-scrollbar-thumb {
+            background: rgba(102, 126, 234, 0.3);
+            border-radius: 3px;
+        }
+
+        #messages-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .message {
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            position: relative;
+            word-wrap: break-word;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message .sender {
+            font-weight: 600;
+            font-size: 0.8rem;
+            margin-bottom: 6px;
+            opacity: 0.8;
+        }
+
+        .message .text {
+            font-size: 0.95rem;
+            line-height: 1.4;
+        }
+
+        .message .timestamp {
+            font-size: 0.7rem;
+            opacity: 0.6;
+            margin-top: 6px;
+        }
+
+        .my-message {
+            align-self: flex-end;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border-bottom-right-radius: 6px;
+        }
+
+        .other-message {
+            align-self: flex-start;
+            background: white;
+            color: #333;
+            border: 1px solid rgba(102, 126, 234, 0.1);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            border-bottom-left-radius: 6px;
+        }
+
+        .status-message {
+            text-align: center;
+            font-style: italic;
+            color: #888;
+            font-size: 0.85rem;
+            padding: 8px;
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 12px;
+            margin: 10px auto;
+            max-width: 300px;
+        }
+
+        #typing-indicator {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 16px;
+            background: white;
+            border-radius: 18px;
+            max-width: 80px;
+            margin-bottom: 10px;
+            border: 1px solid rgba(102, 126, 234, 0.1);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .typing-dots {
+            display: flex;
+            gap: 3px;
+        }
+
+        .typing-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #667eea;
+            animation: typing 1.4s infinite;
+        }
+
+        .typing-dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes typing {
+            0%, 60%, 100% { opacity: 0.3; }
+            30% { opacity: 1; }
+        }
+
+        #input-area {
+            padding: 20px;
+            /* Input area padding adjustment for safe area, applied when app-container handles it */
+            /* padding-bottom: calc(20px + env(safe-area-inset-bottom)); */
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            border-top: 1px solid rgba(102, 126, 234, 0.1);
+            flex-shrink: 0; /* Prevent input area from shrinking */
+        }
+
+        #username-display {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        #message-section {
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+        }
+
+        #message-input {
+            flex: 1;
+            padding: 12px 18px;
+            border: 2px solid rgba(102, 126, 234, 0.2);
+            border-radius: 25px;
+            font-size: 0.95rem;
+            resize: none;
+            min-height: 44px;
+            max-height: 120px;
+            transition: all 0.3s ease;
+            background: white;
+            font-family: inherit;
+        }
+
+        #message-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        #send-button {
+            width: 44px;
+            height: 44px;
+            border: none;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+        }
+
+        #send-button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        #send-button:active {
+            transform: scale(0.95);
+        }
+
+        #actions-bar {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+
+        .action-btn {
+            padding: 6px 12px;
+            border: 1px solid rgba(102, 126, 234, 0.3);
+            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.8);
+            color: #667eea;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .action-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        #emoji-picker, #sound-picker {
+            display: none;
+            position: absolute;
+            bottom: calc(100% + env(safe-area-inset-bottom)); /* Adjust for safe area */
+            right: 0;
+            background: white;
+            border: 1px solid rgba(102, 126, 234, 0.2);
+            border-radius: 12px;
+            padding: 10px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 5px;
+        }
+
+        #sound-picker {
+            grid-template-columns: 1fr;
+            min-width: 200px;
+            padding: 15px;
+        }
+
+        .sound-option {
+            padding: 10px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border: 1px solid rgba(102, 126, 234, 0.2);
+            margin-bottom: 8px;
+        }
+
+        .sound-option:hover {
+            background: rgba(102, 126, 234, 0.1);
+            transform: translateX(5px);
+        }
+
+        .sound-option.active {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border-color: #667eea;
+        }
+
+        .emoji {
+            width: 30px;
+            height: 30px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background 0.2s;
+            font-size: 1.2rem;
+        }
+
+        .emoji:hover {
+            background: rgba(102, 126, 234, 0.1);
+        }
+
+        /* Modal styles for name entry */
+        #name-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            padding-top: env(safe-area-inset-top);
+            padding-left: env(safe-area-inset-left);
+            padding-right: env(safe-area-inset-right);
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+
+        #name-modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+        }
+
+        #name-modal h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+
+        #name-modal input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid rgba(102, 126, 234, 0.2);
+            border-radius: 12px;
+            font-size: 1rem;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        #name-modal input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        #name-modal button {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        #name-modal button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        /* Original media query for responsiveness on smaller browser windows */
+        /* This will now also affect how it looks if not launched in standalone PWA mode */
+        @media (max-width: 480px) {
+            /* Ensure #app-container takes full width/height if not in standalone PWA mode */
+            /* but on small screens */
+            #app-container:not(:fullscreen) { /* Check if this selector logic is needed */
+                 /* width: 100%; */
+                 /* height: 100vh; */
+                 /* border-radius: 0; */
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="name-modal">
+        <div id="name-modal-content">
+            <h2>Welcome to Instant Chat!</h2>
+            <p style="margin-bottom: 20px; color: #666;">Enter your name to get started:</p>
+            <input type="text" id="name-modal-input" placeholder="Your name..." maxlength="20">
+            <button id="name-modal-btn">Start Chatting</button>
+        </div>
+    </div>
+
+    <div id="app-container">
+        <div id="header">
+            <h1>
+                <svg class="header-icon" viewBox="0 0 24 24">
+                    <path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h4l4 4 4-4h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
+                </svg>
+                Instant Chat
+            </h1>
+            <div id="header-controls">
+                <button id="clear-chat-btn">Clear Chat</button>
+                <div id="online-status">
+                    <div class="status-dot"></div>
+                    Online
+                </div>
+            </div>
+        </div>
+
+        <div id="chat-window">
+            <div id="messages-container"></div>
+            <div id="typing-indicator">
+                <div class="typing-dots">
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="input-area">
+            <div id="username-display">
+                Chatting as: <span id="current-username"></span>
+            </div>
+            
+            <div id="actions-bar">
+                <button class="action-btn" id="emoji-btn">😊</button>
+                <button class="action-btn" id="sound-btn">🔊 Sounds</button>
+            </div>
+
+            <div id="message-section" style="position: relative;">
+                <textarea id="message-input" placeholder="Type your message..." rows="1"></textarea>
+                <button id="send-button">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                    </svg>
+                </button>
+                
+                <div id="emoji-picker">
+                    <div class="emoji">😊</div><div class="emoji">😂</div><div class="emoji">❤️</div>
+                    <div class="emoji">👍</div><div class="emoji">👎</div><div class="emoji">😢</div>
+                    <div class="emoji">😮</div><div class="emoji">😡</div><div class="emoji">🤔</div>
+                    <div class="emoji">🎉</div><div class="emoji">👋</div><div class="emoji">🔥</div>
+                </div>
+
+                <div id="sound-picker">
+                    <div class="sound-option active" data-sound="ding">
+                        🔔 Classic Ding
+                    </div>
+                    <div class="sound-option" data-sound="bubble">
+                        💧 Bubble Pop
+                    </div>
+                    <div class="sound-option" data-sound="chime">
+                        🎵 Soft Chime
+                    </div>
+                    <div class="sound-option" data-sound="ping">
+                        📳 Modern Ping
+                    </div>
+                    <div class="sound-option" data-sound="whistle">
+                        🎶 Whistle
+                    </div>
+                    <div class="sound-option" data-sound="off">
+                        🔇 Sound Off
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <audio id="sound-ding" preload="auto">
+        <source src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLmokmRcGuA6+Pyz" type="audio/wav">
+    </audio>
+
+    <script type="module">
+        // Import the functions you need from the SDKs you need
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
+        import { getDatabase, ref, push, serverTimestamp, orderByChild, limitToLast, onChildAdded, query, set, onValue } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-database.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-analytics.js";
+
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyCkVTJhYIp0tC1lPTosvblH-Z_pDRfOnWw", // Consider using environment variables or a more secure way for API keys
+            authDomain: "my-instant-messenger.firebaseapp.com",
+            projectId: "my-instant-messenger",
+            storageBucket: "my-instant-messenger.firebasestorage.app",
+            messagingSenderId: "810420644901",
+            appId: "1:810420644901:web:132c6b86a47a95d144a3cc",
+            measurementId: "G-27Y8L9L06Y"
+        };
+
+        // Initialize Firebase
+        let app;
+        let database;
+        let analytics;
+        
+        try {
+            app = initializeApp(firebaseConfig);
+            database = getDatabase(app);
+            analytics = getAnalytics(app);
+        } catch (e) {
+            console.error("Firebase initialization error:", e);
+            alert("Could not initialize Firebase. Please check your configuration.");
+        }
+
+        // DOM Elements
+        const messagesContainer = document.getElementById('messages-container');
+        const messageInput = document.getElementById('message-input');
+        const sendButton = document.getElementById('send-button');
+        const chatWindow = document.getElementById('chat-window');
+        const typingIndicator = document.getElementById('typing-indicator');
+        const emojiBtn = document.getElementById('emoji-btn');
+        const emojiPicker = document.getElementById('emoji-picker');
+        const soundBtn = document.getElementById('sound-btn');
+        const soundPicker = document.getElementById('sound-picker');
+        const clearChatBtn = document.getElementById('clear-chat-btn');
+        const currentUsernameSpan = document.getElementById('current-username');
+        const nameModal = document.getElementById('name-modal');
+        const nameModalInput = document.getElementById('name-modal-input');
+        const nameModalBtn = document.getElementById('name-modal-btn');
+
+        // State
+        let currentUsername = "";
+        let messages = [];
+        let currentSoundType = "ding";
+        let typingTimeout;
+        let isTyping = false;
+
+        // Audio Context for generating sounds
+        let audioContext;
+        
+        // Initialize audio context
+        function initAudioContext() {
+            if (!audioContext && (window.AudioContext || window.webkitAudioContext)) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            } else if (!audioContext) {
+                console.warn("Web Audio API not supported.");
+            }
+        }
+
+        // Sound generation functions
+        function playBubbleSound() {
+            initAudioContext();
+            if (!audioContext) return;
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+            oscillator.frequency.exponentialRampToValueAtTime(400, audioContext.currentTime + 0.1);
+            
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.3);
+        }
+
+        function playChimeSound() {
+            initAudioContext();
+            if (!audioContext) return;
+            const frequencies = [523.25, 659.25, 783.99]; // C5, E5, G5
+            
+            frequencies.forEach((freq, index) => {
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.frequency.setValueAtTime(freq, audioContext.currentTime);
+                oscillator.type = 'sine';
+                
+                const startTime = audioContext.currentTime + (index * 0.1);
+                gainNode.gain.setValueAtTime(0, startTime);
+                gainNode.gain.linearRampToValueAtTime(0.2, startTime + 0.05);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + 0.8);
+                
+                oscillator.start(startTime);
+                oscillator.stop(startTime + 0.8);
+            });
+        }
+
+        function playPingSound() {
+            initAudioContext();
+            if (!audioContext) return;
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.setValueAtTime(1000, audioContext.currentTime);
+            oscillator.type = 'sine';
+            
+            gainNode.gain.setValueAtTime(0.4, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.15);
+        }
+
+        function playWhistleSound() {
+            initAudioContext();
+            if (!audioContext) return;
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.setValueAtTime(2000, audioContext.currentTime);
+            oscillator.frequency.linearRampToValueAtTime(2500, audioContext.currentTime + 0.2);
+            oscillator.type = 'sine';
+            
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.linearRampToValueAtTime(0.1, audioContext.currentTime + 0.1);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.4);
+        }
+
+        function playDingSound() {
+            const audioElement = document.getElementById('sound-ding');
+            if (audioElement) {
+                audioElement.currentTime = 0;
+                audioElement.play().catch(e => console.log('Ding sound play failed:', e));
+            }
+        }
+
+        // Name modal functionality
+        function showNameModal() {
+            const savedUsername = localStorage.getItem('messengerUsername');
+            if (savedUsername) {
+                nameModalInput.value = savedUsername;
+            }
+            nameModal.style.display = 'flex';
+            nameModalInput.focus();
+        }
+
+        function hideNameModal() {
+            nameModal.style.display = 'none';
+        }
+
+        function setUsername() {
+            const username = nameModalInput.value.trim();
+            if (username) {
+                currentUsername = username;
+                localStorage.setItem('messengerUsername', currentUsername);
+                currentUsernameSpan.textContent = currentUsername;
+                hideNameModal();
+                initializeChat();
+                 // Attempt to initialize AudioContext after user interaction
+                initAudioContext();
+            } else {
+                alert('Please enter a valid name');
+                nameModalInput.focus();
+            }
+        }
+
+        // Message functions
+        function sanitizeText(text) {
+            const element = document.createElement('div');
+            element.innerText = text;
+            return element.innerHTML;
+        }
+
+        function sendMessage() {
+            if (!database) {
+                alert("Database not initialized. Cannot send message.");
+                return;
+            }
+            
+            const rawMessageText = messageInput.value.trim();
+
+            if (rawMessageText === "" || !currentUsername) return;
+
+            const message = {
+                sender: currentUsername,
+                text: rawMessageText,
+                timestamp: serverTimestamp()
+            };
+
+            const messagesDbRef = ref(database, 'messages');
+            push(messagesDbRef, message)
+                .then(() => {
+                    messageInput.value = '';
+                    adjustTextareaHeight();
+                })
+                .catch(error => {
+                    console.error("Error sending message: ", error);
+                    alert("Error sending message. Check console for details.");
+                });
+        }
+
+        function initializeChat() {
+            // Initialize welcome messages
+            addStatusMessage('Welcome to Instant Chat! 🎉');
+            
+            // Firebase Data Listener
+            if (database) {
+                const messagesDbRef = ref(database, 'messages');
+                const messagesQuery = query(messagesDbRef, orderByChild('timestamp'), limitToLast(50));
+
+                onChildAdded(messagesQuery, (snapshot) => {
+                    const message = snapshot.val();
+                    const messageId = snapshot.key;
+                    if (message) {
+                        const isMyMsg = message.sender === currentUsername;
+                        displayMessage(messageId, message.sender, message.text, message.timestamp, isMyMsg);
+                    }
+                });
+
+                // Listen for when the entire messages node is cleared
+                onValue(messagesDbRef, (snapshot) => {
+                    if (!snapshot.exists()) {
+                        // Messages have been cleared - clear the local display
+                        messagesContainer.innerHTML = '';
+                        addStatusMessage('Chat cleared by administrator');
+                    }
+                });
+                
+                addStatusMessage('Connected to real-time chat!');
+            } else {
+                addStatusMessage('Error: Could not connect to Firebase. Check console for details.');
+            }
+            
+            console.log("Instant Chat initialized with Firebase!");
+        }
+
+        function displayMessage(msgId, sender, text, timestamp, isMyMessage) {
+            if (document.getElementById(msgId)) return; // Avoid duplicate messages
+
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('message');
+            messageDiv.classList.add(isMyMessage ? 'my-message' : 'other-message');
+            messageDiv.id = msgId;
+
+            const senderDiv = document.createElement('div');
+            senderDiv.classList.add('sender');
+            senderDiv.textContent = sender;
+
+            const textDiv = document.createElement('div');
+            textDiv.classList.add('text');
+            textDiv.innerHTML = sanitizeText(text); // Sanitize HTML before displaying
+
+            const timeDiv = document.createElement('div');
+            timeDiv.classList.add('timestamp');
+            if (timestamp) {
+                const time = new Date(timestamp).toLocaleTimeString([], { 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                });
+                timeDiv.textContent = time;
+            }
+
+            messageDiv.appendChild(senderDiv);
+            messageDiv.appendChild(textDiv);
+            messageDiv.appendChild(timeDiv);
+            
+            messagesContainer.appendChild(messageDiv);
+            // Scroll to bottom smoothly
+            chatWindow.scrollTo({ top: chatWindow.scrollHeight, behavior: 'smooth' });
+            
+            // Play notification sound for messages from others
+            if (!isMyMessage && document.visibilityState === 'visible') { // Only play if tab is active
+                playNotificationSound();
+            }
+        }
+
+        function addStatusMessage(text) {
+            const statusDiv = document.createElement('div');
+            statusDiv.classList.add('status-message');
+            statusDiv.textContent = text;
+            messagesContainer.appendChild(statusDiv);
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        }
+
+        function showTypingIndicator(username) {
+            typingIndicator.style.display = 'flex';
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        }
+
+        function hideTypingIndicator() {
+            typingIndicator.style.display = 'none';
+        }
+
+        function adjustTextareaHeight() {
+            messageInput.style.height = 'auto';
+            messageInput.style.height = Math.min(messageInput.scrollHeight, 120) + 'px';
+        }
+
+        function playNotificationSound() {
+            if (currentSoundType === 'off') return;
+            
+            try {
+                 // Ensure AudioContext is initialized (especially important on mobile)
+                if (!audioContext && currentSoundType !== 'ding') {
+                    initAudioContext(); // Try to init if not already
+                    if (!audioContext) {
+                        console.warn("AudioContext not available for sound:", currentSoundType);
+                        return; // Still not available, can't play web audio
+                    }
+                }
+
+
+                switch (currentSoundType) {
+                    case 'ding':
+                        playDingSound();
+                        break;
+                    case 'bubble':
+                        playBubbleSound();
+                        break;
+                    case 'chime':
+                        playChimeSound();
+                        break;
+                    case 'ping':
+                        playPingSound();
+                        break;
+                    case 'whistle':
+                        playWhistleSound();
+                        break;
+                }
+            } catch (e) {
+                console.log('Sound play failed:', e);
+            }
+        }
+
+        function clearChat() {
+            const pin = prompt('Enter PIN to clear chat for all users:');
+            if (pin === '5855') { // Keep PIN mechanism as is
+                if (confirm('This will clear the chat for ALL users. Are you sure?')) {
+                    if (!database) {
+                        alert("Database not initialized. Cannot clear chat.");
+                        return;
+                    }
+                    
+                    const messagesDbRef = ref(database, 'messages');
+                    set(messagesDbRef, null)
+                        .then(() => {
+                            console.log('Chat cleared successfully');
+                            messagesContainer.innerHTML = ''; // Clear local display
+                            addStatusMessage('Chat cleared by administrator');
+                        })
+                        .catch(error => {
+                            console.error("Error clearing chat: ", error);
+                            alert("Error clearing chat. Check console for details.");
+                        });
+                }
+            } else if (pin !== null) {
+                alert('Incorrect PIN. Chat not cleared.');
+            }
+        }
+
+        function setSoundType(soundType) {
+            currentSoundType = soundType;
+            localStorage.setItem('messengerSoundType', soundType);
+            
+            document.querySelectorAll('.sound-option').forEach(option => {
+                option.classList.remove('active');
+            });
+            const activeOption = document.querySelector(`[data-sound="${soundType}"]`);
+            if (activeOption) activeOption.classList.add('active');
+            
+            const soundNames = {
+                'ding': '🔔', 'bubble': '💧', 'chime': '🎵',
+                'ping': '📳', 'whistle': '🎶', 'off': '🔇'
+            };
+            soundBtn.textContent = `${soundNames[soundType] || '🔊'} Sounds`;
+            
+            if (soundType !== 'off') {
+                 // Delay slightly to ensure UI updates before sound plays
+                setTimeout(() => playNotificationSound(), 100);
+            }
+        }
+
+        // Event Listeners
+        sendButton.addEventListener('click', sendMessage);
+
+        messageInput.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+            }
+        });
+
+        messageInput.addEventListener('input', function() {
+            adjustTextareaHeight();
+            // Typing indicator logic (simplified for this example)
+            clearTimeout(typingTimeout);
+            if (!isTyping) {
+                // In a real app, you would send a "typing" event to Firebase
+                isTyping = true; 
+            }
+            typingTimeout = setTimeout(() => {
+                // Send "stopped typing" event
+                isTyping = false;
+            }, 1000);
+        });
+
+        nameModalBtn.addEventListener('click', setUsername);
+        nameModalInput.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                setUsername();
+            }
+        });
+
+        emojiBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const isPickerVisible = emojiPicker.style.display === 'grid';
+            emojiPicker.style.display = isPickerVisible ? 'none' : 'grid';
+            soundPicker.style.display = 'none'; // Close sound picker
+        });
+
+        soundBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const isPickerVisible = soundPicker.style.display === 'grid';
+            soundPicker.style.display = isPickerVisible ? 'none' : 'grid';
+            emojiPicker.style.display = 'none'; // Close emoji picker
+        });
+
+        document.addEventListener('click', function(e) {
+            // Close pickers if click is outside
+            if (!emojiPicker.contains(e.target) && e.target !== emojiBtn) {
+                emojiPicker.style.display = 'none';
+            }
+            if (!soundPicker.contains(e.target) && e.target !== soundBtn) {
+                soundPicker.style.display = 'none';
+            }
+        });
+
+        document.querySelectorAll('.emoji').forEach(emoji => {
+            emoji.addEventListener('click', function(e) {
+                e.stopPropagation();
+                messageInput.value += this.textContent;
+                emojiPicker.style.display = 'none';
+                messageInput.focus();
+                adjustTextareaHeight();
+            });
+        });
+
+        document.querySelectorAll('.sound-option').forEach(option => {
+            option.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const soundType = this.getAttribute('data-sound');
+                setSoundType(soundType);
+                soundPicker.style.display = 'none';
+            });
+        });
+
+        clearChatBtn.addEventListener('click', clearChat);
+
+        // Initialize the app
+        const savedSoundType = localStorage.getItem('messengerSoundType') || 'ding';
+        setSoundType(savedSoundType);
+        
+        showNameModal();
+        
+        console.log("Enhanced Messenger PWA initialized!");
+
+        // Service Worker Registration
+        if ('serviceWorker' in navigator) {
+          window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js') // Path relative to HTML file
+              .then(registration => {
+                console.log('ServiceWorker registration successful with scope: ', registration.scope);
+              })
+              .catch(err => {
+                console.log('ServiceWorker registration failed: ', err);
+              });
+          });
+        }
+
+    </script>
+</body>
+</html>
