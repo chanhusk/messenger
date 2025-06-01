@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Modern Messenger</title>
+    <title>Instant Chat</title>
     <style>
         * {
             margin: 0;
@@ -367,7 +367,7 @@
                 <svg class="header-icon" viewBox="0 0 24 24">
                     <path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h4l4 4 4-4h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
                 </svg>
-                Modern Chat
+                Instant Chat
             </h1>
             <div id="online-status">
                 <div class="status-dot"></div>
@@ -420,12 +420,35 @@
     </audio>
 
     <script type="module">
-        // Simulated Firebase functionality for demo purposes
-        // In production, replace with actual Firebase imports and configuration
-        
+        // Import the functions you need from the SDKs you need
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
+        import { getDatabase, ref, push, serverTimestamp, orderByChild, limitToLast, onChildAdded, query } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-database.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-analytics.js";
+
+        // Your web app's Firebase configuration
         const firebaseConfig = {
-            // Your Firebase config would go here
+            apiKey: "AIzaSyCkVTJhYIp0tC1lPTosvblH-Z_pDRfOnWw",
+            authDomain: "my-instant-messenger.firebaseapp.com",
+            projectId: "my-instant-messenger",
+            storageBucket: "my-instant-messenger.firebasestorage.app",
+            messagingSenderId: "810420644901",
+            appId: "1:810420644901:web:132c6b86a47a95d144a3cc",
+            measurementId: "G-27Y8L9L06Y"
         };
+
+        // Initialize Firebase
+        let app;
+        let database;
+        let analytics;
+        
+        try {
+            app = initializeApp(firebaseConfig);
+            database = getDatabase(app);
+            analytics = getAnalytics(app);
+        } catch (e) {
+            console.error("Firebase initialization error:", e);
+            alert("Could not initialize Firebase. Please check your configuration.");
+        }
 
         // DOM Elements
         const messagesContainer = document.getElementById('messages-container');
@@ -464,6 +487,11 @@
         }
 
         function sendMessage() {
+            if (!database) {
+                alert("Database not initialized. Cannot send message.");
+                return;
+            }
+            
             const rawMessageText = messageInput.value.trim();
             const senderName = usernameInput.value.trim() || currentUsername;
 
@@ -475,53 +503,47 @@
             }
 
             const message = {
-                id: Date.now() + Math.random(),
                 sender: senderName,
                 text: rawMessageText,
-                timestamp: Date.now()
+                timestamp: serverTimestamp()
             };
 
-            messages.push(message);
-            displayMessage(message.id, message.sender, message.text, message.timestamp, true);
-            messageInput.value = '';
-            adjustTextareaHeight();
-            
-            // Simulate receiving messages from others (for demo)
-            setTimeout(() => simulateIncomingMessage(), Math.random() * 3000 + 1000);
+            const messagesDbRef = ref(database, 'messages');
+            push(messagesDbRef, message)
+                .then(() => {
+                    messageInput.value = '';
+                    adjustTextareaHeight();
+                })
+                .catch(error => {
+                    console.error("Error sending message: ", error);
+                    alert("Error sending message. Check console for details.");
+                });
         }
 
-        function simulateIncomingMessage() {
-            const responses = [
-                "That's interesting! 🤔",
-                "I agree with you! 👍",
-                "Tell me more about that",
-                "Wow, really? 😮",
-                "That's awesome! 🎉",
-                "Thanks for sharing!",
-                "I see what you mean",
-                "Good point! 💡"
-            ];
+        // Initialize
+        addStatusMessage('Welcome to Instant Chat! 🎉');
+        
+        // Firebase Data Listener
+        if (database) {
+            const messagesDbRef = ref(database, 'messages');
+            const messagesQuery = query(messagesDbRef, orderByChild('timestamp'), limitToLast(50));
+
+            onChildAdded(messagesQuery, (snapshot) => {
+                const message = snapshot.val();
+                const messageId = snapshot.key;
+                if (message) {
+                    const activeUsername = usernameInput.value.trim() || currentUsername;
+                    const isMyMsg = message.sender === activeUsername;
+                    displayMessage(messageId, message.sender, message.text, message.timestamp, isMyMsg);
+                }
+            });
             
-            const randomResponse = responses[Math.floor(Math.random() * responses.length)];
-            const fakeUser = "Demo User";
-            
-            // Show typing indicator
-            showTypingIndicator(fakeUser);
-            
-            setTimeout(() => {
-                hideTypingIndicator();
-                const message = {
-                    id: Date.now() + Math.random(),
-                    sender: fakeUser,
-                    text: randomResponse,
-                    timestamp: Date.now()
-                };
-                
-                messages.push(message);
-                displayMessage(message.id, message.sender, message.text, message.timestamp, false);
-                playNotificationSound();
-            }, 1500);
+            addStatusMessage('Connected to real-time chat!');
+        } else {
+            addStatusMessage('Error: Could not connect to Firebase. Check console for details.');
         }
+        
+        console.log("Instant Chat initialized with Firebase!");
 
         function displayMessage(msgId, sender, text, timestamp, isMyMessage) {
             if (document.getElementById(msgId)) return;
@@ -541,11 +563,13 @@
 
             const timeDiv = document.createElement('div');
             timeDiv.classList.add('timestamp');
-            const time = new Date(timestamp).toLocaleTimeString([], { 
-                hour: '2-digit', 
-                minute: '2-digit' 
-            });
-            timeDiv.textContent = time;
+            if (timestamp) {
+                const time = new Date(timestamp).toLocaleTimeString([], { 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                });
+                timeDiv.textContent = time;
+            }
 
             messageDiv.appendChild(senderDiv);
             messageDiv.appendChild(textDiv);
@@ -553,6 +577,11 @@
             
             messagesContainer.appendChild(messageDiv);
             chatWindow.scrollTop = chatWindow.scrollHeight;
+            
+            // Play notification sound for messages from others
+            if (!isMyMessage) {
+                playNotificationSound();
+            }
         }
 
         function addStatusMessage(text) {
