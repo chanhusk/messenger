@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instant Messenger</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            background-color: #f4f4f4;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: #333;
+        }
+
+        #app-container {
+            width: 90%;
+            max-width: 450px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 90vh;
+            max-height: 700px;
+        }
+
+        h1 {
+            background-color: #007bff;
+            color: white;
+            padding: 15px;
+            margin: 0;
+            text-align: center;
+            font-size: 1.4em;
+        }
+
+        #chat-window {
+            flex-grow: 1;
+            overflow-y: auto;
+            border-bottom: 1px solid #eee;
+            padding: 10px;
+            background-color: #e9e9e0;
+        }
+
+        #messages-container {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .message {
+            padding: 8px 12px;
+            margin-bottom: 8px;
+            border-radius: 15px;
+            max-width: 80%;
+            line-height: 1.4;
+            word-wrap: break-word;
+        }
+
+        .message .sender {
+            font-weight: bold;
+            font-size: 0.8em;
+            margin-bottom: 3px;
+            color: #003399;
+        }
+
+        .message .text {
+            font-size: 0.95em;
+        }
+
+        .my-message {
+            background-color: #dcf8c6;
+            align-self: flex-end;
+            border-bottom-right-radius: 5px;
+            color: #333;
+        }
+
+        .my-message .sender {
+            color: #006400;
+        }
+
+        .other-message {
+            background-color: #fff;
+            align-self: flex-start;
+            border-bottom-left-radius: 5px;
+            border: 1px solid #ddd;
+            color: #333;
+        }
+
+        .other-message .sender {
+            color: #990000;
+        }
+
+        #input-area {
+            display: flex;
+            padding: 10px;
+            background-color: #f0f0f0;
+            border-top: 1px solid #ccc;
+        }
+
+        #username-input {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            margin-right: 5px;
+            flex-basis: 100px;
+            flex-shrink: 1;
+            min-width: 80px;
+        }
+
+        #message-input {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            margin-right: 10px;
+        }
+
+        #send-button {
+            padding: 10px 15px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.2s;
+        }
+
+        #send-button:hover {
+            background-color: #0056b3;
+        }
+
+        .status-message {
+            text-align: center;
+            font-style: italic;
+            color: #777;
+            font-size: 0.9em;
+            padding: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="app-container">
+        <h1>Simple Messenger</h1>
+        <div id="chat-window">
+            <div id="messages-container">
+                </div>
+        </div>
+        <div id="input-area">
+            <input type="text" id="username-input" placeholder="Your Name">
+            <input type="text" id="message-input" placeholder="Type your message...">
+            <button id="send-button">Send</button>
+        </div>
+    </div>
+
+    <script type="module">
+        // Import the functions you need from the SDKs you need
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
+        // Import Realtime Database specific functions
+        import { getDatabase, ref, push, serverTimestamp, orderByChild, limitToLast, onChildAdded, query } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-database.js";
+        // Note: getAnalytics is not used in this chat app, so it's not imported to keep it minimal.
+
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyCkVTJhYIp0tC1lPTosvblH-Z_pDRfOnWw", // YOUR ACTUAL API KEY
+            authDomain: "my-instant-messenger.firebaseapp.com", // YOUR ACTUAL AUTH DOMAIN
+            projectId: "my-instant-messenger",                 // YOUR ACTUAL PROJECT ID
+            storageBucket: "my-instant-messenger.firebasestorage.app", // YOUR ACTUAL STORAGE BUCKET
+            messagingSenderId: "810420644901",               // YOUR ACTUAL MESSAGING SENDER ID
+            appId: "1:810420644901:web:132c6b86a47a95d144a3cc",   // YOUR ACTUAL APP ID
+            measurementId: "G-27Y8L9L06Y" // Optional, for Analytics
+        };
+
+        // Initialize Firebase
+        let app;
+        let database;
+        try {
+            app = initializeApp(firebaseConfig);
+            database = getDatabase(app);
+        } catch (e) {
+            console.error("Firebase initialization error:", e);
+            alert("Could not initialize Firebase. Please check your configuration and ensure you've included the Firebase SDKs correctly and that your config is correct.");
+        }
+
+
+        // --- DOM Elements ---
+        const messagesContainer = document.getElementById('messages-container');
+        const messageInput = document.getElementById('message-input');
+        const sendButton = document.getElementById('send-button');
+        const usernameInput = document.getElementById('username-input');
+        const chatWindow = document.getElementById('chat-window');
+
+        // --- State ---
+        let currentUsername = "User" + Math.floor(Math.random() * 1000);
+
+        // --- Functions ---
+        function sanitizeText(text) {
+            const element = document.createElement('div');
+            element.innerText = text;
+            return element.innerHTML;
+        }
+
+        function sendMessage() {
+            if (!database) {
+                alert("Database not initialized. Cannot send message.");
+                return;
+            }
+            const rawMessageText = messageInput.value.trim();
+            const senderName = usernameInput.value.trim() || currentUsername;
+
+            if (rawMessageText === "") return;
+
+            if (usernameInput.value.trim()) {
+                currentUsername = usernameInput.value.trim();
+            }
+
+            const message = {
+                sender: senderName,
+                text: rawMessageText,
+                timestamp: serverTimestamp() // Firebase server timestamp
+            };
+
+            const messagesDbRef = ref(database, 'messages');
+            push(messagesDbRef, message)
+                .then(() => {
+                    messageInput.value = '';
+                })
+                .catch(error => {
+                    console.error("Error sending message: ", error);
+                    alert("Error sending message. Check console.");
+                });
+        }
+
+        function displayMessage(msgId, sender, text, timestamp, isMyMessage) {
+            if (document.getElementById(msgId)) return;
+
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('message');
+            messageDiv.classList.add(isMyMessage ? 'my-message' : 'other-message');
+            messageDiv.id = msgId;
+
+            const senderDiv = document.createElement('div');
+            senderDiv.classList.add('sender');
+            senderDiv.textContent = sender;
+
+            const textDiv = document.createElement('div');
+            textDiv.classList.add('text');
+            textDiv.innerHTML = sanitizeText(text);
+
+            messageDiv.appendChild(senderDiv);
+            messageDiv.appendChild(textDiv);
+
+            if (timestamp) {
+                const time = new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                const timeDiv = document.createElement('div');
+                timeDiv.style.fontSize = '0.7em';
+                timeDiv.style.color = '#888';
+                timeDiv.style.textAlign = isMyMessage ? 'right' : 'left';
+                timeDiv.textContent = time;
+                messageDiv.appendChild(timeDiv);
+            }
+            
+            messagesContainer.appendChild(messageDiv);
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        }
+
+        function addStatusMessage(text) {
+            const statusDiv = document.createElement('div');
+            statusDiv.classList.add('status-message');
+            statusDiv.textContent = text;
+            messagesContainer.appendChild(statusDiv);
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        }
+
+        // --- Event Listeners ---
+        if (sendButton) {
+            sendButton.addEventListener('click', sendMessage);
+        }
+        if (messageInput) {
+            messageInput.addEventListener('keypress', function(event) {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault();
+                    sendMessage();
+                }
+            });
+        }
+        if (usernameInput) {
+            usernameInput.addEventListener('change', function() {
+                const newName = usernameInput.value.trim();
+                if (newName) {
+                    currentUsername = newName;
+                    localStorage.setItem('messengerUsername', currentUsername);
+                    addStatusMessage(`${currentUsername} is now your name.`);
+                }
+            });
+            const savedUsername = localStorage.getItem('messengerUsername');
+            if (savedUsername) {
+                currentUsername = savedUsername;
+                usernameInput.value = currentUsername;
+            } else {
+                 usernameInput.value = currentUsername;
+            }
+        }
+
+        // --- Firebase Data Listener ---
+        if (database) {
+            const messagesDbRef = ref(database, 'messages');
+            const messagesQuery = query(messagesDbRef, orderByChild('timestamp'), limitToLast(100));
+
+            onChildAdded(messagesQuery, (snapshot) => {
+                const message = snapshot.val();
+                const messageId = snapshot.key;
+                if (message) {
+                    const activeUsername = usernameInput.value.trim() || currentUsername;
+                    const isMyMsg = message.sender === activeUsername;
+                    displayMessage(messageId, message.sender, message.text, message.timestamp, isMyMsg);
+                }
+            });
+        } else {
+            addStatusMessage("Error: Firebase Database not initialized. Messages cannot be loaded.");
+        }
+        
+
+        // --- Initial Setup ---
+        if (messagesContainer) {
+             addStatusMessage('Welcome to Simple Messenger!');
+             if (!database) {
+                addStatusMessage('Attempting to connect to database... If messages do not appear, check console (F12) for errors.');
+             }
+        } else {
+            console.error("Messages container not found!");
+        }
+        console.log("Messenger app initialized using modular Firebase SDK.");
+
+    </script>
+</body>
+</html>
