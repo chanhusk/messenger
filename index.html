@@ -34,6 +34,7 @@
             flex-direction: column;
             overflow: hidden;
             border: 1px solid rgba(255, 255, 255, 0.2);
+            position: relative; /* Added for menu positioning */
         }
 
         #header {
@@ -44,7 +45,58 @@
             align-items: center;
             justify-content: space-between;
             position: relative;
+            z-index: 10; /* Ensure header is above menu button if overlapping slightly */
         }
+
+        #header-left { /* New container for title and menu button */
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        #menu-btn { /* Styles for the new menu button */
+            padding: 8px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            color: white;
+            font-size: 1.2rem; /* Adjust as needed for icon or text */
+            cursor: pointer;
+            transition: all 0.3s ease;
+            line-height: 1; /* Ensures icon is centered if using text/emoji */
+        }
+
+        #menu-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.05);
+        }
+
+
+        #top-left-menu { /* Styles for the new menu */
+            position: absolute;
+            top: 60px; /* Adjust based on header height */
+            left: 10px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            z-index: 1001; /* Ensure menu is on top */
+            padding: 10px 0;
+            display: none; /* Initially hidden */
+            border: 1px solid rgba(0,0,0,0.1);
+        }
+
+        .menu-item {
+            padding: 10px 20px;
+            color: #333;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background-color 0.2s ease;
+        }
+
+        .menu-item:hover {
+            background-color: #f0f0f0;
+        }
+
 
         #header-controls {
             display: flex;
@@ -52,21 +104,7 @@
             gap: 15px;
         }
 
-        #clear-chat-btn {
-            padding: 8px 12px;
-            background: rgba(255, 255, 255, 0.2);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            border-radius: 8px;
-            color: white;
-            font-size: 0.9rem;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        #clear-chat-btn:hover {
-            background: rgba(255, 255, 255, 0.3);
-            transform: scale(1.05);
-        }
+        /* REMOVED #clear-chat-btn styles as it's now a .menu-item */
 
         #header h1 {
             font-size: 1.5rem;
@@ -455,11 +493,13 @@
                 height: 100vh;
                 border-radius: 0;
             }
+             #top-left-menu {
+                top: 55px; /* Adjust for potentially smaller header on mobile */
+            }
         }
     </style>
 </head>
 <body>
-    <!-- Name entry modal -->
     <div id="name-modal">
         <div id="name-modal-content">
             <h2>Welcome Bitch Niggas!</h2>
@@ -470,15 +510,19 @@
     </div>
 
     <div id="app-container">
+        <div id="top-left-menu">
+            <div class="menu-item" id="menu-clear-chat">Clear Chat</div>
+            </div>
+
         <div id="header">
-            <h1>
-                <svg class="header-icon" viewBox="0 0 24 24">
-                    <path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h4l4 4 4-4h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
-                </svg>
-                Savage Niggas
-            </h1>
+            <div id="header-left"> <button id="menu-btn">☰</button> <h1>
+                    <svg class="header-icon" viewBox="0 0 24 24">
+                        <path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h4l4 4 4-4h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
+                    </svg>
+                    Savage Niggas
+                </h1>
+            </div>
             <div id="header-controls">
-                <button id="clear-chat-btn">Clear Chat</button>
                 <div id="online-status">
                     <div class="status-dot"></div>
                     Online
@@ -546,7 +590,6 @@
         </div>
     </div>
 
-    <!-- Audio elements for different notification sounds -->
     <audio id="sound-ding" preload="auto">
         <source src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLmokmRcGuA6+Pyz" type="audio/wav">
     </audio>
@@ -559,7 +602,7 @@
 
         // Your web app's Firebase configuration
         const firebaseConfig = {
-            apiKey: "AIzaSyCkVTJhYIp0tC1lPTosvblH-Z_pDRfOnWw",
+            apiKey: "AIzaSyCkVTJhYIp0tC1lPTosvblH-Z_pDRfOnWw", // Replace with your actual API key if this is a placeholder
             authDomain: "my-instant-messenger.firebaseapp.com",
             projectId: "my-instant-messenger",
             storageBucket: "my-instant-messenger.firebasestorage.app",
@@ -592,11 +635,17 @@
         const emojiPicker = document.getElementById('emoji-picker');
         const soundBtn = document.getElementById('sound-btn');
         const soundPicker = document.getElementById('sound-picker');
-        const clearChatBtn = document.getElementById('clear-chat-btn');
+        // const clearChatBtn = document.getElementById('clear-chat-btn'); // Original button, now a menu item
         const currentUsernameSpan = document.getElementById('current-username');
         const nameModal = document.getElementById('name-modal');
         const nameModalInput = document.getElementById('name-modal-input');
         const nameModalBtn = document.getElementById('name-modal-btn');
+        
+        // New Menu DOM Elements
+        const menuBtn = document.getElementById('menu-btn');
+        const topLeftMenu = document.getElementById('top-left-menu');
+        const menuClearChatBtn = document.getElementById('menu-clear-chat');
+
 
         // State
         let currentUsername = "";
@@ -889,7 +938,7 @@
             }
         }
 
-        function clearChat() {
+        function clearChat() { // This function remains largely the same
             const pin = prompt('Enter PIN to clear chat for all users:');
             if (pin === '5855') {
                 if (confirm('This will clear the chat for ALL users. Are you sure?')) {
@@ -915,6 +964,7 @@
             } else if (pin !== null) {
                 alert('Incorrect PIN. Chat not cleared.');
             }
+            topLeftMenu.style.display = 'none'; // Hide menu after action
         }
 
         function setSoundType(soundType) {
@@ -984,6 +1034,7 @@
             e.stopPropagation();
             emojiPicker.style.display = emojiPicker.style.display === 'grid' ? 'none' : 'grid';
             soundPicker.style.display = 'none';
+            topLeftMenu.style.display = 'none'; // Close main menu if open
         });
 
         // Sound picker functionality
@@ -991,11 +1042,19 @@
             e.stopPropagation();
             soundPicker.style.display = soundPicker.style.display === 'grid' ? 'none' : 'grid';
             emojiPicker.style.display = 'none';
+            topLeftMenu.style.display = 'none'; // Close main menu if open
         });
 
-        document.addEventListener('click', function() {
-            emojiPicker.style.display = 'none';
-            soundPicker.style.display = 'none';
+        document.addEventListener('click', function(e) { // Updated to handle menu closing
+            if (!topLeftMenu.contains(e.target) && !menuBtn.contains(e.target)) {
+                topLeftMenu.style.display = 'none';
+            }
+            if (!emojiPicker.contains(e.target) && !emojiBtn.contains(e.target)){
+                emojiPicker.style.display = 'none';
+            }
+            if(!soundPicker.contains(e.target) && !soundBtn.contains(e.target)){
+                 soundPicker.style.display = 'none';
+            }
         });
 
         document.querySelectorAll('.emoji').forEach(emoji => {
@@ -1018,7 +1077,22 @@
             });
         });
 
-        clearChatBtn.addEventListener('click', clearChat);
+        // clearChatBtn.addEventListener('click', clearChat); // Original listener removed
+
+        // New Menu Event Listeners
+        menuBtn.addEventListener('click', function(e) {
+            e.stopPropagation(); // Prevent document click listener from closing it immediately
+            topLeftMenu.style.display = topLeftMenu.style.display === 'block' ? 'none' : 'block';
+            emojiPicker.style.display = 'none'; // Close other pickers
+            soundPicker.style.display = 'none'; // Close other pickers
+        });
+
+        menuClearChatBtn.addEventListener('click', function(e) {
+            e.stopPropagation(); // Prevent click from bubbling up
+            clearChat(); // Call the existing clearChat function
+            // The clearChat function already handles hiding the menu
+        });
+
 
         // Initialize the app
         // Load saved sound preference
@@ -1027,7 +1101,7 @@
         
         showNameModal();
         
-        console.log("Enhanced Messenger initialized with multiple sound options!");
+        console.log("Enhanced Messenger initialized with multiple sound options and top-left menu!");
     </script>
 </body>
 </html>
