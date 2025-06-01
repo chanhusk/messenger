@@ -14,6 +14,7 @@
             align-items: center;
             height: 100vh;
             color: #333;
+            overflow: hidden; /* Prevent scrollbars from initial hidden elements */
         }
 
         #app-container {
@@ -29,14 +30,86 @@
             max-height: 700px;
         }
 
-        h1 {
+        /* Username Gate Styling */
+        #username-gate {
+            padding: 30px;
+            text-align: center;
             background-color: #007bff;
             color: white;
-            padding: 15px;
-            margin: 0;
-            text-align: center;
-            font-size: 1.4em;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100%; /* Take full height of app-container initially */
         }
+        #username-gate h2 {
+            margin-top: 0;
+            margin-bottom: 20px;
+        }
+        #username-gate input {
+            padding: 12px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            margin-bottom: 15px;
+            width: 80%;
+            box-sizing: border-box;
+            text-align: center;
+        }
+        #username-gate button {
+            padding: 12px 25px;
+            background-color: #fff;
+            color: #007bff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.2s, color 0.2s;
+        }
+        #username-gate button:hover {
+            background-color: #f0f0f0;
+        }
+
+        /* Chat View Container (initially hidden) */
+        #chat-view-container {
+            display: none; /* Hidden by default */
+            flex-direction: column;
+            height: 100%;
+            width: 100%;
+        }
+
+
+        .header-bar {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-bar h1 {
+            margin: 0;
+            font-size: 1.2em; /* Adjusted size */
+        }
+        
+        #user-display {
+            font-size: 0.8em;
+            font-weight: normal;
+        }
+
+        #clear-chat-button {
+            background-color: #ff4d4d;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8em;
+        }
+        #clear-chat-button:hover {
+            background-color: #cc0000;
+        }
+
 
         #chat-window {
             flex-grow: 1;
@@ -101,16 +174,6 @@
             border-top: 1px solid #ccc;
         }
 
-        #username-input {
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            margin-right: 5px;
-            flex-basis: 100px;
-            flex-shrink: 1;
-            min-width: 80px;
-        }
-
         #message-input {
             flex-grow: 1;
             padding: 10px;
@@ -145,37 +208,43 @@
 </head>
 <body>
     <div id="app-container">
-        <h1>Simple Messenger</h1>
-        <div id="chat-window">
-            <div id="messages-container">
-                </div>
+
+        <div id="username-gate">
+            <h2>Welcome to Messenger</h2>
+            <input type="text" id="username-gate-input" placeholder="Enter your name">
+            <button id="join-chat-button">Join Chat</button>
         </div>
-        <div id="input-area">
-            <input type="text" id="username-input" placeholder="Your Name">
-            <input type="text" id="message-input" placeholder="Type your message...">
-            <button id="send-button">Send</button>
+
+        <div id="chat-view-container">
+            <div class="header-bar">
+                <h1>Messenger <span id="user-display"></span></h1>
+                <button id="clear-chat-button">Clear Chat</button>
+            </div>
+            <div id="chat-window">
+                <div id="messages-container">
+                    </div>
+            </div>
+            <div id="input-area">
+                <input type="text" id="message-input" placeholder="Type your message...">
+                <button id="send-button">Send</button>
+            </div>
         </div>
     </div>
 
     <script type="module">
-        // Import the functions you need from the SDKs you need
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
-        // Import Realtime Database specific functions
-        import { getDatabase, ref, push, serverTimestamp, orderByChild, limitToLast, onChildAdded, query } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-database.js";
-        // Note: getAnalytics is not used in this chat app, so it's not imported to keep it minimal.
+        import { getDatabase, ref, push, serverTimestamp, orderByChild, limitToLast, onChildAdded, query, remove } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-database.js";
 
-        // Your web app's Firebase configuration
         const firebaseConfig = {
-            apiKey: "AIzaSyCkVTJhYIp0tC1lPTosvblH-Z_pDRfOnWw", // YOUR ACTUAL API KEY
-            authDomain: "my-instant-messenger.firebaseapp.com", // YOUR ACTUAL AUTH DOMAIN
-            projectId: "my-instant-messenger",                 // YOUR ACTUAL PROJECT ID
-            storageBucket: "my-instant-messenger.firebasestorage.app", // YOUR ACTUAL STORAGE BUCKET
-            messagingSenderId: "810420644901",               // YOUR ACTUAL MESSAGING SENDER ID
-            appId: "1:810420644901:web:132c6b86a47a95d144a3cc",   // YOUR ACTUAL APP ID
-            measurementId: "G-27Y8L9L06Y" // Optional, for Analytics
+            apiKey: "AIzaSyCkVTJhYIp0tC1lPTosvblH-Z_pDRfOnWw",
+            authDomain: "my-instant-messenger.firebaseapp.com",
+            projectId: "my-instant-messenger",
+            storageBucket: "my-instant-messenger.firebasestorage.app",
+            messagingSenderId: "810420644901",
+            appId: "1:810420644901:web:132c6b86a47a95d144a3cc",
+            measurementId: "G-27Y8L9L06Y"
         };
 
-        // Initialize Firebase
         let app;
         let database;
         try {
@@ -183,64 +252,97 @@
             database = getDatabase(app);
         } catch (e) {
             console.error("Firebase initialization error:", e);
-            alert("Could not initialize Firebase. Please check your configuration and ensure you've included the Firebase SDKs correctly and that your config is correct.");
+            const gate = document.getElementById('username-gate');
+            if (gate) {
+                gate.innerHTML = "<h2>Error</h2><p>Could not connect to services. Please check console (F12) and Firebase configuration.</p>";
+            } else {
+                alert("Critical Firebase initialization error.");
+            }
         }
 
-
-        // --- DOM Elements ---
+        const usernameGate = document.getElementById('username-gate');
+        const usernameGateInput = document.getElementById('username-gate-input');
+        const joinChatButton = document.getElementById('join-chat-button');
+        const chatViewContainer = document.getElementById('chat-view-container');
+        const userDisplay = document.getElementById('user-display');
+        
         const messagesContainer = document.getElementById('messages-container');
         const messageInput = document.getElementById('message-input');
         const sendButton = document.getElementById('send-button');
-        const usernameInput = document.getElementById('username-input');
+        const clearChatButton = document.getElementById('clear-chat-button');
         const chatWindow = document.getElementById('chat-window');
 
-        // --- State ---
-        let currentUsername = "User" + Math.floor(Math.random() * 1000);
+        let currentUsername = "";
 
-        // --- Functions ---
         function sanitizeText(text) {
             const element = document.createElement('div');
             element.innerText = text;
             return element.innerHTML;
         }
 
+        function showChatView() {
+            usernameGate.style.display = 'none';
+            chatViewContainer.style.display = 'flex'; // Use flex as it's a flex container
+            userDisplay.textContent = `(as ${currentUsername})`;
+            initializeMessageListener(); // IMPORTANT: Initialize listener after username is set
+            addStatusMessage(`Welcome ${currentUsername}!`);
+        }
+
+        function initializeUser() {
+            const savedUsername = localStorage.getItem('messengerUsername');
+            if (savedUsername && savedUsername.trim() !== "") {
+                currentUsername = savedUsername;
+                showChatView();
+            } else {
+                usernameGate.style.display = 'flex'; // Show the gate
+                chatViewContainer.style.display = 'none';
+            }
+        }
+
+        joinChatButton.addEventListener('click', () => {
+            const name = usernameGateInput.value.trim();
+            if (name) {
+                currentUsername = name;
+                localStorage.setItem('messengerUsername', currentUsername);
+                showChatView();
+            } else {
+                alert("Please enter a username.");
+            }
+        });
+        usernameGateInput.addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                joinChatButton.click();
+            }
+        });
+
+
         function sendMessage() {
-            if (!database) {
-                alert("Database not initialized. Cannot send message.");
+            if (!database || !currentUsername) {
+                alert("User not set or database not initialized.");
                 return;
             }
             const rawMessageText = messageInput.value.trim();
-            const senderName = usernameInput.value.trim() || currentUsername;
-
             if (rawMessageText === "") return;
 
-            if (usernameInput.value.trim()) {
-                currentUsername = usernameInput.value.trim();
-            }
-
             const message = {
-                sender: senderName,
+                sender: currentUsername,
                 text: rawMessageText,
-                timestamp: serverTimestamp() // Firebase server timestamp
+                timestamp: serverTimestamp()
             };
 
             const messagesDbRef = ref(database, 'messages');
             push(messagesDbRef, message)
-                .then(() => {
-                    messageInput.value = '';
-                })
-                .catch(error => {
-                    console.error("Error sending message: ", error);
-                    alert("Error sending message. Check console.");
-                });
+                .then(() => { messageInput.value = ''; })
+                .catch(error => { console.error("Error sending message: ", error); alert("Error sending message."); });
         }
 
-        function displayMessage(msgId, sender, text, timestamp, isMyMessage) {
+        function displayMessage(msgId, sender, text, timestamp) {
             if (document.getElementById(msgId)) return;
 
             const messageDiv = document.createElement('div');
             messageDiv.classList.add('message');
-            messageDiv.classList.add(isMyMessage ? 'my-message' : 'other-message');
+            const isMyMsg = sender === currentUsername;
+            messageDiv.classList.add(isMyMsg ? 'my-message' : 'other-message');
             messageDiv.id = msgId;
 
             const senderDiv = document.createElement('div');
@@ -259,7 +361,7 @@
                 const timeDiv = document.createElement('div');
                 timeDiv.style.fontSize = '0.7em';
                 timeDiv.style.color = '#888';
-                timeDiv.style.textAlign = isMyMessage ? 'right' : 'left';
+                timeDiv.style.textAlign = isMyMsg ? 'right' : 'left';
                 timeDiv.textContent = time;
                 messageDiv.appendChild(timeDiv);
             }
@@ -275,11 +377,28 @@
             messagesContainer.appendChild(statusDiv);
             chatWindow.scrollTop = chatWindow.scrollHeight;
         }
-
-        // --- Event Listeners ---
-        if (sendButton) {
-            sendButton.addEventListener('click', sendMessage);
+        
+        function handleClearChat() {
+            if (!database) {
+                alert("Database not initialized.");
+                return;
+            }
+            if (confirm("Are you sure you want to clear ALL messages? This cannot be undone.")) {
+                const messagesDbRef = ref(database, 'messages');
+                remove(messagesDbRef)
+                    .then(() => {
+                        messagesContainer.innerHTML = ''; // Clear local display
+                        addStatusMessage("Chat cleared successfully.");
+                        console.log("All messages cleared from Firebase.");
+                    })
+                    .catch((error) => {
+                        console.error("Error clearing chat: ", error);
+                        alert("Failed to clear chat. See console for details.");
+                    });
+            }
         }
+
+        if (sendButton) sendButton.addEventListener('click', sendMessage);
         if (messageInput) {
             messageInput.addEventListener('keypress', function(event) {
                 if (event.key === 'Enter' && !event.shiftKey) {
@@ -288,54 +407,48 @@
                 }
             });
         }
-        if (usernameInput) {
-            usernameInput.addEventListener('change', function() {
-                const newName = usernameInput.value.trim();
-                if (newName) {
-                    currentUsername = newName;
-                    localStorage.setItem('messengerUsername', currentUsername);
-                    addStatusMessage(`${currentUsername} is now your name.`);
-                }
-            });
-            const savedUsername = localStorage.getItem('messengerUsername');
-            if (savedUsername) {
-                currentUsername = savedUsername;
-                usernameInput.value = currentUsername;
-            } else {
-                 usernameInput.value = currentUsername;
-            }
-        }
-
-        // --- Firebase Data Listener ---
-        if (database) {
-            const messagesDbRef = ref(database, 'messages');
-            const messagesQuery = query(messagesDbRef, orderByChild('timestamp'), limitToLast(100));
-
-            onChildAdded(messagesQuery, (snapshot) => {
-                const message = snapshot.val();
-                const messageId = snapshot.key;
-                if (message) {
-                    const activeUsername = usernameInput.value.trim() || currentUsername;
-                    const isMyMsg = message.sender === activeUsername;
-                    displayMessage(messageId, message.sender, message.text, message.timestamp, isMyMsg);
-                }
-            });
-        } else {
-            addStatusMessage("Error: Firebase Database not initialized. Messages cannot be loaded.");
-        }
+        if (clearChatButton) clearChatButton.addEventListener('click', handleClearChat);
         
 
-        // --- Initial Setup ---
-        if (messagesContainer) {
-             addStatusMessage('Welcome to Simple Messenger!');
-             if (!database) {
-                addStatusMessage('Attempting to connect to database... If messages do not appear, check console (F12) for errors.');
-             }
-        } else {
-            console.error("Messages container not found!");
-        }
-        console.log("Messenger app initialized using modular Firebase SDK.");
+        function initializeMessageListener() {
+            if (database) {
+                const messagesDbRef = ref(database, 'messages');
+                const messagesQuery = query(messagesDbRef, orderByChild('timestamp'), limitToLast(100));
 
+                onChildAdded(messagesQuery, (snapshot) => {
+                    const message = snapshot.val();
+                    const messageId = snapshot.key;
+                    if (message) {
+                        displayMessage(messageId, message.sender, message.text, message.timestamp);
+                    }
+                }, (error) => { // Optional: Add error handling for the listener itself
+                    console.error("Error attaching Firebase listener:", error);
+                    addStatusMessage("Error: Could not load new messages. Check connection.");
+                });
+            } else {
+                addStatusMessage("Error: Firebase Database not available. Messages cannot be loaded.");
+            }
+        }
+        
+        // --- Initial App Start ---
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!database) { // If Firebase failed to init earlier
+                console.warn("Database was not initialized. Chat functionality will be limited.");
+                // The username gate might already show an error, or we can update it here.
+                if(usernameGate.style.display !== 'none'){ // If gate is visible
+                     usernameGateInput.disabled = true;
+                     joinChatButton.disabled = true;
+                     const errorP = document.createElement('p');
+                     errorP.textContent = "Cannot connect to chat service.";
+                     errorP.style.color = "yellow";
+                     usernameGate.appendChild(errorP);
+                }
+                return; // Stop further execution if db is not available
+            }
+            initializeUser(); // Check for saved username or show gate
+        });
+
+        console.log("Messenger app script loaded.");
     </script>
 </body>
 </html>
