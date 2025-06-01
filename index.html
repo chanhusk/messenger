@@ -46,6 +46,28 @@
             position: relative;
         }
 
+        #header-controls {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        #clear-chat-btn {
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            color: white;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        #clear-chat-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.05);
+        }
+
         #header h1 {
             font-size: 1.5rem;
             font-weight: 600;
@@ -221,27 +243,14 @@
             border-top: 1px solid rgba(102, 126, 234, 0.1);
         }
 
-        #username-section {
+        #username-display {
             display: flex;
             align-items: center;
             gap: 10px;
             margin-bottom: 15px;
-        }
-
-        #username-input {
-            flex: 1;
-            padding: 10px 15px;
-            border: 2px solid rgba(102, 126, 234, 0.2);
-            border-radius: 12px;
             font-size: 0.9rem;
-            transition: all 0.3s ease;
-            background: white;
-        }
-
-        #username-input:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            color: #667eea;
+            font-weight: 600;
         }
 
         #message-section {
@@ -351,6 +360,68 @@
             display: none;
         }
 
+        /* Modal styles for name entry */
+        #name-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+        }
+
+        #name-modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+        }
+
+        #name-modal h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+
+        #name-modal input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid rgba(102, 126, 234, 0.2);
+            border-radius: 12px;
+            font-size: 1rem;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        #name-modal input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        #name-modal button {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        #name-modal button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
         @media (max-width: 480px) {
             #app-container {
                 width: 100%;
@@ -361,6 +432,16 @@
     </style>
 </head>
 <body>
+    <!-- Name entry modal -->
+    <div id="name-modal">
+        <div id="name-modal-content">
+            <h2>Welcome to Instant Chat!</h2>
+            <p style="margin-bottom: 20px; color: #666;">Enter your name to get started:</p>
+            <input type="text" id="name-modal-input" placeholder="Your name..." maxlength="20">
+            <button id="name-modal-btn">Start Chatting</button>
+        </div>
+    </div>
+
     <div id="app-container">
         <div id="header">
             <h1>
@@ -369,9 +450,12 @@
                 </svg>
                 Instant Chat
             </h1>
-            <div id="online-status">
-                <div class="status-dot"></div>
-                Online
+            <div id="header-controls">
+                <button id="clear-chat-btn">Clear Chat</button>
+                <div id="online-status">
+                    <div class="status-dot"></div>
+                    Online
+                </div>
             </div>
         </div>
 
@@ -387,13 +471,12 @@
         </div>
 
         <div id="input-area">
-            <div id="username-section">
-                <input type="text" id="username-input" placeholder="Enter your name...">
+            <div id="username-display">
+                Chatting as: <span id="current-username"></span>
             </div>
             
             <div id="actions-bar">
                 <button class="action-btn" id="emoji-btn">😊</button>
-                <button class="action-btn" id="clear-btn">Clear</button>
                 <button class="action-btn" id="sound-btn">🔊</button>
             </div>
 
@@ -422,7 +505,7 @@
     <script type="module">
         // Import the functions you need from the SDKs you need
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
-        import { getDatabase, ref, push, serverTimestamp, orderByChild, limitToLast, onChildAdded, query } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-database.js";
+        import { getDatabase, ref, push, serverTimestamp, orderByChild, limitToLast, onChildAdded, query, set } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-database.js";
         import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-analytics.js";
 
         // Your web app's Firebase configuration
@@ -454,29 +537,51 @@
         const messagesContainer = document.getElementById('messages-container');
         const messageInput = document.getElementById('message-input');
         const sendButton = document.getElementById('send-button');
-        const usernameInput = document.getElementById('username-input');
         const chatWindow = document.getElementById('chat-window');
         const typingIndicator = document.getElementById('typing-indicator');
         const emojiBtn = document.getElementById('emoji-btn');
         const emojiPicker = document.getElementById('emoji-picker');
-        const clearBtn = document.getElementById('clear-btn');
+        const clearChatBtn = document.getElementById('clear-chat-btn');
         const soundBtn = document.getElementById('sound-btn');
         const notificationSound = document.getElementById('notification-sound');
+        const currentUsernameSpan = document.getElementById('current-username');
+        const nameModal = document.getElementById('name-modal');
+        const nameModalInput = document.getElementById('name-modal-input');
+        const nameModalBtn = document.getElementById('name-modal-btn');
 
         // State
-        let currentUsername = "User" + Math.floor(Math.random() * 1000);
+        let currentUsername = "";
         let messages = [];
         let soundEnabled = true;
         let typingTimeout;
         let isTyping = false;
 
-        // Initialize username
-        const savedUsername = localStorage.getItem('messengerUsername');
-        if (savedUsername) {
-            currentUsername = savedUsername;
-            usernameInput.value = currentUsername;
-        } else {
-            usernameInput.value = currentUsername;
+        // Name modal functionality
+        function showNameModal() {
+            const savedUsername = localStorage.getItem('messengerUsername');
+            if (savedUsername) {
+                nameModalInput.value = savedUsername;
+            }
+            nameModal.style.display = 'flex';
+            nameModalInput.focus();
+        }
+
+        function hideNameModal() {
+            nameModal.style.display = 'none';
+        }
+
+        function setUsername() {
+            const username = nameModalInput.value.trim();
+            if (username) {
+                currentUsername = username;
+                localStorage.setItem('messengerUsername', currentUsername);
+                currentUsernameSpan.textContent = currentUsername;
+                hideNameModal();
+                initializeChat();
+            } else {
+                alert('Please enter a valid name');
+                nameModalInput.focus();
+            }
         }
 
         // Message functions
@@ -493,17 +598,11 @@
             }
             
             const rawMessageText = messageInput.value.trim();
-            const senderName = usernameInput.value.trim() || currentUsername;
 
-            if (rawMessageText === "") return;
-
-            if (usernameInput.value.trim()) {
-                currentUsername = usernameInput.value.trim();
-                localStorage.setItem('messengerUsername', currentUsername);
-            }
+            if (rawMessageText === "" || !currentUsername) return;
 
             const message = {
-                sender: senderName,
+                sender: currentUsername,
                 text: rawMessageText,
                 timestamp: serverTimestamp()
             };
@@ -520,30 +619,31 @@
                 });
         }
 
-        // Initialize
-        addStatusMessage('Welcome to Instant Chat! 🎉');
-        
-        // Firebase Data Listener
-        if (database) {
-            const messagesDbRef = ref(database, 'messages');
-            const messagesQuery = query(messagesDbRef, orderByChild('timestamp'), limitToLast(50));
-
-            onChildAdded(messagesQuery, (snapshot) => {
-                const message = snapshot.val();
-                const messageId = snapshot.key;
-                if (message) {
-                    const activeUsername = usernameInput.value.trim() || currentUsername;
-                    const isMyMsg = message.sender === activeUsername;
-                    displayMessage(messageId, message.sender, message.text, message.timestamp, isMyMsg);
-                }
-            });
+        function initializeChat() {
+            // Initialize welcome messages
+            addStatusMessage('Welcome to Instant Chat! 🎉');
             
-            addStatusMessage('Connected to real-time chat!');
-        } else {
-            addStatusMessage('Error: Could not connect to Firebase. Check console for details.');
+            // Firebase Data Listener
+            if (database) {
+                const messagesDbRef = ref(database, 'messages');
+                const messagesQuery = query(messagesDbRef, orderByChild('timestamp'), limitToLast(50));
+
+                onChildAdded(messagesQuery, (snapshot) => {
+                    const message = snapshot.val();
+                    const messageId = snapshot.key;
+                    if (message) {
+                        const isMyMsg = message.sender === currentUsername;
+                        displayMessage(messageId, message.sender, message.text, message.timestamp, isMyMsg);
+                    }
+                });
+                
+                addStatusMessage('Connected to real-time chat!');
+            } else {
+                addStatusMessage('Error: Could not connect to Firebase. Check console for details.');
+            }
+            
+            console.log("Instant Chat initialized with Firebase!");
         }
-        
-        console.log("Instant Chat initialized with Firebase!");
 
         function displayMessage(msgId, sender, text, timestamp, isMyMessage) {
             if (document.getElementById(msgId)) return;
@@ -618,17 +718,37 @@
         }
 
         function clearChat() {
-            if (confirm('Are you sure you want to clear all messages?')) {
-                messagesContainer.innerHTML = '';
-                messages = [];
-                addStatusMessage('Chat cleared');
+            const pin = prompt('Enter PIN to clear chat for all users:');
+            if (pin === '5855') {
+                if (confirm('This will clear the chat for ALL users. Are you sure?')) {
+                    if (!database) {
+                        alert("Database not initialized. Cannot clear chat.");
+                        return;
+                    }
+                    
+                    const messagesDbRef = ref(database, 'messages');
+                    // Clear all messages from Firebase
+                    set(messagesDbRef, null)
+                        .then(() => {
+                            console.log('Chat cleared successfully');
+                            // Clear local display
+                            messagesContainer.innerHTML = '';
+                            addStatusMessage('Chat cleared by administrator');
+                        })
+                        .catch(error => {
+                            console.error("Error clearing chat: ", error);
+                            alert("Error clearing chat. Check console for details.");
+                        });
+                }
+            } else if (pin !== null) {
+                alert('Incorrect PIN. Chat not cleared.');
             }
         }
 
         function toggleSound() {
             soundEnabled = !soundEnabled;
             soundBtn.textContent = soundEnabled ? '🔊' : '🔇';
-            addStatusMessage(soundEnabled ? 'Sound enabled' : 'Sound disabled');
+            // Removed the status message that was showing sound enabled/disabled
         }
 
         // Event Listeners
@@ -657,13 +777,12 @@
             }, 1000);
         });
 
-        usernameInput.addEventListener('change', function() {
-            const newName = usernameInput.value.trim();
-            if (newName && newName !== currentUsername) {
-                const oldName = currentUsername;
-                currentUsername = newName;
-                localStorage.setItem('messengerUsername', currentUsername);
-                addStatusMessage(`${oldName} changed name to ${currentUsername}`);
+        // Name modal event listeners
+        nameModalBtn.addEventListener('click', setUsername);
+        nameModalInput.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                setUsername();
             }
         });
 
@@ -687,12 +806,11 @@
             });
         });
 
-        clearBtn.addEventListener('click', clearChat);
+        clearChatBtn.addEventListener('click', clearChat);
         soundBtn.addEventListener('click', toggleSound);
 
-        // Initialize
-        addStatusMessage('Welcome to Modern Chat! 🎉');
-        addStatusMessage('Start typing to see the magic happen...');
+        // Initialize the app
+        showNameModal();
         
         console.log("Modern Messenger initialized with enhanced features!");
     </script>
